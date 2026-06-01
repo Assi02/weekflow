@@ -33,7 +33,6 @@ function Auth({ onLogin }: { onLogin: (u: User) => void }) {
 
   async function handleSubmit() {
     setError('')
-    const fn = isSignUp ? supabase.auth.signUp : supabase.auth.signInWithPassword
     const { data, error } = await (isSignUp
       ? supabase.auth.signUp({ email, password })
       : supabase.auth.signInWithPassword({ email, password }))
