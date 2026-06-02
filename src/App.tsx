@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 
 interface Task {
   id: string
@@ -383,6 +384,7 @@ function App() {
           )}
         </>
       )}
+      <SpeedInsights />
     </div>
   )
 }
