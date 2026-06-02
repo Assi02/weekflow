@@ -82,6 +82,91 @@ function fmt(d: Date) {
   return d.toISOString().split('T')[0]
 }
 
+function TaskForm({ form, setForm, editingTask, saveTask, onCancel }: {
+  form: typeof EMPTY_FORM
+  setForm: (f: typeof EMPTY_FORM) => void
+  editingTask: Task | null
+  saveTask: () => void
+  onCancel: () => void
+}) {
+  return (
+    <div style={{ background: '#f9f9f9', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+      <h3 style={{ margin: '0 0 12px', color: '#6c63ff' }}>{editingTask ? '✏️ Edit Task' : '➕ New Task'}</h3>
+      <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Task title *"
+        style={{ width: '100%', padding: 10, marginBottom: 8, borderRadius: 8, border: '1px solid #ccc', fontSize: 15, boxSizing: 'border-box' }} />
+      <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Description"
+        style={{ width: '100%', padding: 10, marginBottom: 8, borderRadius: 8, border: '1px solid #ccc', fontSize: 14, boxSizing: 'border-box', resize: 'none', height: 60 }} />
+      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+        <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}
+          style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #ccc', fontSize: 14 }}>
+          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <select value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value })}
+          style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #ccc', fontSize: 14 }}>
+          {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
+        </select>
+      </div>
+      <input type="date" value={form.scheduled_date} onChange={e => setForm({ ...form, scheduled_date: e.target.value })}
+        style={{ width: '100%', padding: 10, marginBottom: 8, borderRadius: 8, border: '1px solid #ccc', fontSize: 14, boxSizing: 'border-box' }} />
+      <input value={form.contact_name} onChange={e => setForm({ ...form, contact_name: e.target.value })} placeholder="Contact name"
+        style={{ width: '100%', padding: 10, marginBottom: 8, borderRadius: 8, border: '1px solid #ccc', fontSize: 14, boxSizing: 'border-box' }} />
+      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+        <input value={form.contact_phone} onChange={e => setForm({ ...form, contact_phone: e.target.value })} placeholder="Phone"
+          style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #ccc', fontSize: 14 }} />
+        <input value={form.contact_email} onChange={e => setForm({ ...form, contact_email: e.target.value })} placeholder="Email"
+          style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #ccc', fontSize: 14 }} />
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button onClick={saveTask}
+          style={{ flex: 1, padding: 12, borderRadius: 8, background: '#43b89c', color: 'white', border: 'none', cursor: 'pointer', fontSize: 15 }}>
+          {editingTask ? '💾 Save Changes' : '✅ Add Task'}
+        </button>
+        <button onClick={onCancel}
+          style={{ padding: 12, borderRadius: 8, background: '#ff6584', color: 'white', border: 'none', cursor: 'pointer', fontSize: 15 }}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function TaskCard({ task, toggleStatus, startEdit, deleteTask }: {
+  task: Task
+  toggleStatus: (t: Task) => void
+  startEdit: (t: Task) => void
+  deleteTask: (id: string) => void
+}) {
+  return (
+    <div style={{ background: 'white', borderRadius: 12, padding: 16, marginBottom: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', borderLeft: `4px solid ${CATEGORY_COLORS[task.category] || '#6c63ff'}`, opacity: task.status === 'done' ? 0.6 : 1 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <span onClick={() => toggleStatus(task)} style={{ cursor: 'pointer', fontSize: 18 }}>{task.status === 'done' ? '✅' : '⬜'}</span>
+            <span style={{ fontWeight: 600, textDecoration: task.status === 'done' ? 'line-through' : 'none', color: '#333' }}>{task.title}</span>
+          </div>
+          {task.description && <p style={{ margin: '4px 0 4px 26px', fontSize: 13, color: '#666' }}>{task.description}</p>}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginLeft: 26 }}>
+            <span style={{ background: CATEGORY_COLORS[task.category], color: 'white', borderRadius: 20, padding: '2px 10px', fontSize: 11 }}>{task.category}</span>
+            <span style={{ background: task.priority === 'urgent' ? '#ff6584' : task.priority === 'normal' ? '#ffb347' : '#ccc', color: 'white', borderRadius: 20, padding: '2px 10px', fontSize: 11 }}>{task.priority}</span>
+            {task.scheduled_date && <span style={{ fontSize: 11, color: '#888' }}>📅 {task.scheduled_date}</span>}
+          </div>
+          {(task.contact_phone || task.contact_email) && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 8, marginLeft: 26, flexWrap: 'wrap' }}>
+              {task.contact_name && <span style={{ fontSize: 12, color: '#888' }}>👤 {task.contact_name}</span>}
+              {task.contact_phone && <a href={`tel:${task.contact_phone}`} style={{ fontSize: 12, color: '#6c63ff', textDecoration: 'none', background: '#f0eeff', padding: '3px 10px', borderRadius: 20 }}>📞 Call</a>}
+              {task.contact_email && <a href={`mailto:${task.contact_email}`} style={{ fontSize: 12, color: '#6c63ff', textDecoration: 'none', background: '#f0eeff', padding: '3px 10px', borderRadius: 20 }}>✉️ Email</a>}
+            </div>
+          )}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <button onClick={() => startEdit(task)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}>✏️</button>
+          <button onClick={() => deleteTask(task.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}>❌</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function App() {
   const [user, setUser] = useState<User | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])
@@ -106,9 +191,7 @@ function App() {
   useEffect(() => { if (user) fetchTasks() }, [user])
 
   useEffect(() => {
-    if (tasks.length > 0 && notifPermission === 'granted') {
-      checkReminders(tasks)
-    }
+    if (tasks.length > 0 && notifPermission === 'granted') checkReminders(tasks)
   }, [tasks, notifPermission])
 
   function checkReminders(tasks: Task[]) {
@@ -116,15 +199,9 @@ function App() {
     const tomorrow = fmt(new Date(Date.now() + 86400000))
     tasks.filter(t => t.status === 'pending').forEach(task => {
       if (task.scheduled_date === today) {
-        new Notification(`📅 Due Today: ${task.title}`, {
-          body: task.description || `Category: ${task.category} | Priority: ${task.priority}`,
-          icon: '/favicon.svg'
-        })
+        new Notification(`📅 Due Today: ${task.title}`, { body: task.description || `${task.category} | ${task.priority}`, icon: '/favicon.svg' })
       } else if (task.scheduled_date === tomorrow) {
-        new Notification(`⏰ Due Tomorrow: ${task.title}`, {
-          body: task.description || `Category: ${task.category} | Priority: ${task.priority}`,
-          icon: '/favicon.svg'
-        })
+        new Notification(`⏰ Due Tomorrow: ${task.title}`, { body: task.description || `${task.category} | ${task.priority}`, icon: '/favicon.svg' })
       }
     })
   }
@@ -133,10 +210,7 @@ function App() {
     const permission = await Notification.requestPermission()
     setNotifPermission(permission)
     if (permission === 'granted') {
-      new Notification('🎉 WeekFlow Notifications Enabled!', {
-        body: "You'll be reminded about tasks due today and tomorrow.",
-        icon: '/favicon.svg'
-      })
+      new Notification('🎉 WeekFlow Notifications Enabled!', { body: "You'll be reminded about tasks due today and tomorrow." })
       checkReminders(tasks)
     }
   }
@@ -196,76 +270,6 @@ function App() {
   const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
   const today = fmt(new Date())
 
-  const TaskForm = () => (
-    <div style={{ background: '#f9f9f9', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-      <h3 style={{ margin: '0 0 12px', color: '#6c63ff' }}>{editingTask ? '✏️ Edit Task' : '➕ New Task'}</h3>
-      <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Task title *"
-        style={{ width: '100%', padding: 10, marginBottom: 8, borderRadius: 8, border: '1px solid #ccc', fontSize: 15, boxSizing: 'border-box' }} />
-      <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Description"
-        style={{ width: '100%', padding: 10, marginBottom: 8, borderRadius: 8, border: '1px solid #ccc', fontSize: 14, boxSizing: 'border-box', resize: 'none', height: 60 }} />
-      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-        <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}
-          style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #ccc', fontSize: 14 }}>
-          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <select value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value })}
-          style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #ccc', fontSize: 14 }}>
-          {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
-        </select>
-      </div>
-      <input type="date" value={form.scheduled_date} onChange={e => setForm({ ...form, scheduled_date: e.target.value })}
-        style={{ width: '100%', padding: 10, marginBottom: 8, borderRadius: 8, border: '1px solid #ccc', fontSize: 14, boxSizing: 'border-box' }} />
-      <input value={form.contact_name} onChange={e => setForm({ ...form, contact_name: e.target.value })} placeholder="Contact name"
-        style={{ width: '100%', padding: 10, marginBottom: 8, borderRadius: 8, border: '1px solid #ccc', fontSize: 14, boxSizing: 'border-box' }} />
-      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-        <input value={form.contact_phone} onChange={e => setForm({ ...form, contact_phone: e.target.value })} placeholder="Phone"
-          style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #ccc', fontSize: 14 }} />
-        <input value={form.contact_email} onChange={e => setForm({ ...form, contact_email: e.target.value })} placeholder="Email"
-          style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #ccc', fontSize: 14 }} />
-      </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={saveTask}
-          style={{ flex: 1, padding: 12, borderRadius: 8, background: '#43b89c', color: 'white', border: 'none', cursor: 'pointer', fontSize: 15 }}>
-          {editingTask ? '💾 Save Changes' : '✅ Add Task'}
-        </button>
-        <button onClick={() => { setShowForm(false); setEditingTask(null); setForm(EMPTY_FORM) }}
-          style={{ padding: 12, borderRadius: 8, background: '#ff6584', color: 'white', border: 'none', cursor: 'pointer', fontSize: 15 }}>
-          Cancel
-        </button>
-      </div>
-    </div>
-  )
-
-  const TaskCard = ({ task }: { task: Task }) => (
-    <div style={{ background: 'white', borderRadius: 12, padding: 16, marginBottom: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', borderLeft: `4px solid ${CATEGORY_COLORS[task.category] || '#6c63ff'}`, opacity: task.status === 'done' ? 0.6 : 1 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <span onClick={() => toggleStatus(task)} style={{ cursor: 'pointer', fontSize: 18 }}>{task.status === 'done' ? '✅' : '⬜'}</span>
-            <span style={{ fontWeight: 600, textDecoration: task.status === 'done' ? 'line-through' : 'none', color: '#333' }}>{task.title}</span>
-          </div>
-          {task.description && <p style={{ margin: '4px 0 4px 26px', fontSize: 13, color: '#666' }}>{task.description}</p>}
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginLeft: 26 }}>
-            <span style={{ background: CATEGORY_COLORS[task.category], color: 'white', borderRadius: 20, padding: '2px 10px', fontSize: 11 }}>{task.category}</span>
-            <span style={{ background: task.priority === 'urgent' ? '#ff6584' : task.priority === 'normal' ? '#ffb347' : '#ccc', color: 'white', borderRadius: 20, padding: '2px 10px', fontSize: 11 }}>{task.priority}</span>
-            {task.scheduled_date && <span style={{ fontSize: 11, color: '#888' }}>📅 {task.scheduled_date}</span>}
-          </div>
-          {(task.contact_phone || task.contact_email) && (
-            <div style={{ display: 'flex', gap: 8, marginTop: 8, marginLeft: 26, flexWrap: 'wrap' }}>
-              {task.contact_name && <span style={{ fontSize: 12, color: '#888' }}>👤 {task.contact_name}</span>}
-              {task.contact_phone && <a href={`tel:${task.contact_phone}`} style={{ fontSize: 12, color: '#6c63ff', textDecoration: 'none', background: '#f0eeff', padding: '3px 10px', borderRadius: 20 }}>📞 Call</a>}
-              {task.contact_email && <a href={`mailto:${task.contact_email}`} style={{ fontSize: 12, color: '#6c63ff', textDecoration: 'none', background: '#f0eeff', padding: '3px 10px', borderRadius: 20 }}>✉️ Email</a>}
-            </div>
-          )}
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <button onClick={() => startEdit(task)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}>✏️</button>
-          <button onClick={() => deleteTask(task.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}>❌</button>
-        </div>
-      </div>
-    </div>
-  )
-
   return (
     <div style={{ maxWidth: 500, margin: '0 auto', fontFamily: 'sans-serif', padding: '20px 16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
@@ -277,9 +281,7 @@ function App() {
               🔔 Enable Alerts
             </button>
           )}
-          {notifPermission === 'granted' && (
-            <span style={{ fontSize: 13, color: '#43b89c', padding: '6px 0' }}>🔔 Alerts ON</span>
-          )}
+          {notifPermission === 'granted' && <span style={{ fontSize: 13, color: '#43b89c', padding: '6px 0' }}>🔔 Alerts ON</span>}
           <button onClick={async () => { await supabase.auth.signOut(); setUser(null) }}
             style={{ background: 'none', border: '1px solid #ccc', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 13 }}>Log out</button>
         </div>
@@ -316,7 +318,7 @@ function App() {
         {showForm && !editingTask ? '✕ Cancel' : '+ Add Task'}
       </button>
 
-      {showForm && <TaskForm />}
+      {showForm && <TaskForm form={form} setForm={setForm} editingTask={editingTask} saveTask={saveTask} onCancel={() => { setShowForm(false); setEditingTask(null); setForm(EMPTY_FORM) }} />}
 
       {view === 'list' && (
         <>
@@ -332,7 +334,7 @@ function App() {
               style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #ccc', background: 'white', cursor: 'pointer' }}>Clear</button>}
           </div>
           {filtered.length === 0 && <p style={{ textAlign: 'center', color: '#aaa' }}>No tasks yet!</p>}
-          {filtered.map(task => <TaskCard key={task.id} task={task} />)}
+          {filtered.map(task => <TaskCard key={task.id} task={task} toggleStatus={toggleStatus} startEdit={startEdit} deleteTask={deleteTask} />)}
         </>
       )}
 
@@ -347,7 +349,6 @@ function App() {
             <button onClick={() => setWeekOffset(w => w + 1)}
               style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid #ccc', background: 'white', cursor: 'pointer', fontSize: 16 }}>→</button>
           </div>
-
           <div style={{ display: 'flex', gap: 6, marginBottom: 16, overflowX: 'auto' }}>
             {weekDays.map((day, i) => {
               const d = fmt(day)
@@ -367,7 +368,6 @@ function App() {
               )
             })}
           </div>
-
           {selectedDate ? (
             <>
               <p style={{ fontWeight: 600, color: '#6c63ff', marginBottom: 8 }}>
@@ -375,7 +375,7 @@ function App() {
               </p>
               {tasks.filter(t => t.scheduled_date === selectedDate).length === 0
                 ? <p style={{ textAlign: 'center', color: '#aaa' }}>No tasks for this day!</p>
-                : tasks.filter(t => t.scheduled_date === selectedDate).map(task => <TaskCard key={task.id} task={task} />)
+                : tasks.filter(t => t.scheduled_date === selectedDate).map(task => <TaskCard key={task.id} task={task} toggleStatus={toggleStatus} startEdit={startEdit} deleteTask={deleteTask} />)
               }
             </>
           ) : (
