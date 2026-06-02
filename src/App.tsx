@@ -94,6 +94,7 @@ function App() {
   const [filterCat, setFilterCat] = useState('all')
   const [filterDate, setFilterDate] = useState('')
   const [form, setForm] = useState(EMPTY_FORM)
+  const [notifPermission, setNotifPermission] = useState(Notification.permission)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -103,6 +104,42 @@ function App() {
   }, [])
 
   useEffect(() => { if (user) fetchTasks() }, [user])
+
+  useEffect(() => {
+    if (tasks.length > 0 && notifPermission === 'granted') {
+      checkReminders(tasks)
+    }
+  }, [tasks, notifPermission])
+
+  function checkReminders(tasks: Task[]) {
+    const today = fmt(new Date())
+    const tomorrow = fmt(new Date(Date.now() + 86400000))
+    tasks.filter(t => t.status === 'pending').forEach(task => {
+      if (task.scheduled_date === today) {
+        new Notification(`📅 Due Today: ${task.title}`, {
+          body: task.description || `Category: ${task.category} | Priority: ${task.priority}`,
+          icon: '/favicon.svg'
+        })
+      } else if (task.scheduled_date === tomorrow) {
+        new Notification(`⏰ Due Tomorrow: ${task.title}`, {
+          body: task.description || `Category: ${task.category} | Priority: ${task.priority}`,
+          icon: '/favicon.svg'
+        })
+      }
+    })
+  }
+
+  async function requestNotifications() {
+    const permission = await Notification.requestPermission()
+    setNotifPermission(permission)
+    if (permission === 'granted') {
+      new Notification('🎉 WeekFlow Notifications Enabled!', {
+        body: "You'll be reminded about tasks due today and tomorrow.",
+        icon: '/favicon.svg'
+      })
+      checkReminders(tasks)
+    }
+  }
 
   async function fetchTasks() {
     const { data } = await supabase.from('tasks').select('*').eq('user_id', user!.id).order('scheduled_date')
@@ -204,9 +241,7 @@ function App() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <span onClick={() => toggleStatus(task)} style={{ cursor: 'pointer', fontSize: 18 }}>
-              {task.status === 'done' ? '✅' : '⬜'}
-            </span>
+            <span onClick={() => toggleStatus(task)} style={{ cursor: 'pointer', fontSize: 18 }}>{task.status === 'done' ? '✅' : '⬜'}</span>
             <span style={{ fontWeight: 600, textDecoration: task.status === 'done' ? 'line-through' : 'none', color: '#333' }}>{task.title}</span>
           </div>
           {task.description && <p style={{ margin: '4px 0 4px 26px', fontSize: 13, color: '#666' }}>{task.description}</p>}
@@ -233,14 +268,23 @@ function App() {
 
   return (
     <div style={{ maxWidth: 500, margin: '0 auto', fontFamily: 'sans-serif', padding: '20px 16px' }}>
-      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h1 style={{ color: '#6c63ff', margin: 0 }}>📅 WeekFlow</h1>
-        <button onClick={async () => { await supabase.auth.signOut(); setUser(null) }}
-          style={{ background: 'none', border: '1px solid #ccc', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 13 }}>Log out</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {notifPermission !== 'granted' && (
+            <button onClick={requestNotifications}
+              style={{ background: '#fff8ee', border: '1px solid #ffb347', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 13, color: '#ffb347' }}>
+              🔔 Enable Alerts
+            </button>
+          )}
+          {notifPermission === 'granted' && (
+            <span style={{ fontSize: 13, color: '#43b89c', padding: '6px 0' }}>🔔 Alerts ON</span>
+          )}
+          <button onClick={async () => { await supabase.auth.signOut(); setUser(null) }}
+            style={{ background: 'none', border: '1px solid #ccc', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 13 }}>Log out</button>
+        </div>
       </div>
 
-      {/* Stats */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
         <div style={{ flex: 1, background: '#f0eeff', borderRadius: 12, padding: '12px 16px', textAlign: 'center' }}>
           <div style={{ fontSize: 24, fontWeight: 'bold', color: '#6c63ff' }}>{pending}</div>
@@ -256,7 +300,6 @@ function App() {
         </div>
       </div>
 
-      {/* View Toggle */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <button onClick={() => setView('list')}
           style={{ flex: 1, padding: 10, borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 14, background: view === 'list' ? '#6c63ff' : '#f0f0f0', color: view === 'list' ? 'white' : '#333' }}>
@@ -268,7 +311,6 @@ function App() {
         </button>
       </div>
 
-      {/* Add Task Button */}
       <button onClick={() => { setShowForm(!showForm); setEditingTask(null); setForm(EMPTY_FORM) }}
         style={{ width: '100%', padding: 12, borderRadius: 8, background: '#6c63ff', color: 'white', border: 'none', cursor: 'pointer', fontSize: 16, marginBottom: 16 }}>
         {showForm && !editingTask ? '✕ Cancel' : '+ Add Task'}
@@ -276,7 +318,6 @@ function App() {
 
       {showForm && <TaskForm />}
 
-      {/* LIST VIEW */}
       {view === 'list' && (
         <>
           <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
@@ -295,7 +336,6 @@ function App() {
         </>
       )}
 
-      {/* WEEK VIEW */}
       {view === 'week' && (
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -308,7 +348,6 @@ function App() {
               style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid #ccc', background: 'white', cursor: 'pointer', fontSize: 16 }}>→</button>
           </div>
 
-          {/* Day Pills */}
           <div style={{ display: 'flex', gap: 6, marginBottom: 16, overflowX: 'auto' }}>
             {weekDays.map((day, i) => {
               const d = fmt(day)
@@ -329,7 +368,6 @@ function App() {
             })}
           </div>
 
-          {/* Tasks for selected day */}
           {selectedDate ? (
             <>
               <p style={{ fontWeight: 600, color: '#6c63ff', marginBottom: 8 }}>
