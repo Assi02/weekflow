@@ -25,6 +25,11 @@ const CATEGORY_COLORS: Record<string, string> = {
   work: '#6c63ff', home: '#ff6584', gym: '#43b89c', social: '#ffb347', meeting: '#4da6ff'
 }
 
+const EMPTY_FORM = {
+  title: '', description: '', category: 'work', priority: 'normal',
+  scheduled_date: '', contact_name: '', contact_phone: '', contact_email: ''
+}
+
 function Auth({ onLogin }: { onLogin: (u: User) => void }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -66,12 +71,10 @@ function App() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [filterCat, setFilterCat] = useState('all')
   const [filterDate, setFilterDate] = useState('')
-  const [form, setForm] = useState({
-    title: '', description: '', category: 'work', priority: 'normal',
-    scheduled_date: '', contact_name: '', contact_phone: '', contact_email: ''
-  })
+  const [form, setForm] = useState(EMPTY_FORM)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -89,12 +92,33 @@ function App() {
     if (data) setTasks(data)
   }
 
-  async function addTask() {
+  async function saveTask() {
     if (!form.title.trim()) return
-    const { data } = await supabase.from('tasks').insert({ ...form, user_id: user!.id, status: 'pending' }).select()
-    if (data) setTasks([...tasks, data[0]])
-    setForm({ title: '', description: '', category: 'work', priority: 'normal', scheduled_date: '', contact_name: '', contact_phone: '', contact_email: '' })
+    if (editingTask) {
+      await supabase.from('tasks').update(form).eq('id', editingTask.id)
+      setTasks(tasks.map(t => t.id === editingTask.id ? { ...t, ...form } : t))
+    } else {
+      const { data } = await supabase.from('tasks').insert({ ...form, user_id: user!.id, status: 'pending' }).select()
+      if (data) setTasks([...tasks, data[0]])
+    }
+    setForm(EMPTY_FORM)
     setShowForm(false)
+    setEditingTask(null)
+  }
+
+  function startEdit(task: Task) {
+    setEditingTask(task)
+    setForm({
+      title: task.title,
+      description: task.description,
+      category: task.category,
+      priority: task.priority,
+      scheduled_date: task.scheduled_date,
+      contact_name: task.contact_name,
+      contact_phone: task.contact_phone,
+      contact_email: task.contact_email,
+    })
+    setShowForm(true)
   }
 
   async function toggleStatus(task: Task) {
@@ -122,7 +146,6 @@ function App() {
 
   return (
     <div style={{ maxWidth: 500, margin: '0 auto', fontFamily: 'sans-serif', padding: '20px 16px' }}>
-      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h1 style={{ color: '#6c63ff', margin: 0 }}>📅 WeekFlow</h1>
         <button onClick={async () => { await supabase.auth.signOut(); setUser(null) }}
@@ -131,7 +154,6 @@ function App() {
         </button>
       </div>
 
-      {/* Stats */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
         <div style={{ flex: 1, background: '#f0eeff', borderRadius: 12, padding: '12px 16px', textAlign: 'center' }}>
           <div style={{ fontSize: 24, fontWeight: 'bold', color: '#6c63ff' }}>{pending}</div>
@@ -147,7 +169,6 @@ function App() {
         </div>
       </div>
 
-      {/* Filters */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         <select value={filterCat} onChange={e => setFilterCat(e.target.value)}
           style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #ccc', fontSize: 14 }}>
@@ -160,15 +181,14 @@ function App() {
           style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #ccc', background: 'white', cursor: 'pointer' }}>Clear</button>}
       </div>
 
-      {/* Add Task Button */}
-      <button onClick={() => setShowForm(!showForm)}
+      <button onClick={() => { setShowForm(!showForm); setEditingTask(null); setForm(EMPTY_FORM) }}
         style={{ width: '100%', padding: 12, borderRadius: 8, background: '#6c63ff', color: 'white', border: 'none', cursor: 'pointer', fontSize: 16, marginBottom: 16 }}>
-        {showForm ? '✕ Cancel' : '+ Add Task'}
+        {showForm && !editingTask ? '✕ Cancel' : '+ Add Task'}
       </button>
 
-      {/* Add Task Form */}
       {showForm && (
         <div style={{ background: '#f9f9f9', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+          <h3 style={{ margin: '0 0 12px', color: '#6c63ff' }}>{editingTask ? '✏️ Edit Task' : '➕ New Task'}</h3>
           <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Task title *"
             style={{ width: '100%', padding: 10, marginBottom: 8, borderRadius: 8, border: '1px solid #ccc', fontSize: 15, boxSizing: 'border-box' }} />
           <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Description (optional)"
@@ -194,14 +214,21 @@ function App() {
             <input value={form.contact_email} onChange={e => setForm({ ...form, contact_email: e.target.value })} placeholder="Email"
               style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #ccc', fontSize: 14 }} />
           </div>
-          <button onClick={addTask}
-            style={{ width: '100%', padding: 12, borderRadius: 8, background: '#43b89c', color: 'white', border: 'none', cursor: 'pointer', fontSize: 15 }}>
-            Save Task
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={saveTask}
+              style={{ flex: 1, padding: 12, borderRadius: 8, background: '#43b89c', color: 'white', border: 'none', cursor: 'pointer', fontSize: 15 }}>
+              {editingTask ? '💾 Save Changes' : '✅ Add Task'}
+            </button>
+            {editingTask && (
+              <button onClick={() => { setShowForm(false); setEditingTask(null); setForm(EMPTY_FORM) }}
+                style={{ padding: 12, borderRadius: 8, background: '#ff6584', color: 'white', border: 'none', cursor: 'pointer', fontSize: 15 }}>
+                Cancel
+              </button>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Task List */}
       {filtered.length === 0 && <p style={{ textAlign: 'center', color: '#aaa' }}>No tasks yet! Add one above.</p>}
       {filtered.map(task => (
         <div key={task.id} style={{ background: 'white', borderRadius: 12, padding: 16, marginBottom: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', borderLeft: `4px solid ${CATEGORY_COLORS[task.category] || '#6c63ff'}`, opacity: task.status === 'done' ? 0.6 : 1 }}>
@@ -219,9 +246,8 @@ function App() {
                 <span style={{ background: task.priority === 'urgent' ? '#ff6584' : task.priority === 'normal' ? '#ffb347' : '#ccc', color: 'white', borderRadius: 20, padding: '2px 10px', fontSize: 11 }}>{task.priority}</span>
                 {task.scheduled_date && <span style={{ fontSize: 11, color: '#888', padding: '2px 0' }}>📅 {task.scheduled_date}</span>}
               </div>
-              {/* Contact Actions */}
               {(task.contact_phone || task.contact_email) && (
-                <div style={{ display: 'flex', gap: 8, marginTop: 8, marginLeft: 26 }}>
+                <div style={{ display: 'flex', gap: 8, marginTop: 8, marginLeft: 26, flexWrap: 'wrap' }}>
                   {task.contact_name && <span style={{ fontSize: 12, color: '#888' }}>👤 {task.contact_name}</span>}
                   {task.contact_phone && (
                     <a href={`tel:${task.contact_phone}`} style={{ fontSize: 12, color: '#6c63ff', textDecoration: 'none', background: '#f0eeff', padding: '3px 10px', borderRadius: 20 }}>📞 Call</a>
@@ -232,7 +258,10 @@ function App() {
                 </div>
               )}
             </div>
-            <button onClick={() => deleteTask(task.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#ccc' }}>❌</button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <button onClick={() => startEdit(task)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}>✏️</button>
+              <button onClick={() => deleteTask(task.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}>❌</button>
+            </div>
           </div>
         </div>
       ))}
