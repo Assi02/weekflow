@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
+import { Analytics } from '@vercel/analytics/react'
 
 interface Task {
   id: string
@@ -278,7 +279,7 @@ function App() {
           {notifPermission !== 'granted' && (
             <button onClick={requestNotifications}
               style={{ background: '#fff8ee', border: '1px solid #ffb347', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 13, color: '#ffb347' }}>
-              🔔 Enable Alerts
+              ���� Enable Alerts
             </button>
           )}
           {notifPermission === 'granted' && <span style={{ fontSize: 13, color: '#43b89c', padding: '6px 0' }}>🔔 Alerts ON</span>}
@@ -383,6 +384,7 @@ function App() {
           )}
         </>
       )}
+      <Analytics />
     </div>
   )
 }
