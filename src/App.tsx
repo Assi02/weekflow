@@ -95,21 +95,19 @@ function Auth({ onLogin }: { onLogin: (u: User) => void }) {
   )
 }
 
-function getWeekDays(offset: number) {
-  const days = []
-  const now = new Date()
-  const monday = new Date(now)
-  monday.setDate(now.getDate() - now.getDay() + 1 + offset * 7)
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(monday)
-    d.setDate(monday.getDate() + i)
-    days.push(d)
-  }
-  return days
-}
-
 function fmt(d: Date) {
   return d.toISOString().split('T')[0]
+}
+
+function getMonthDays(year: number, month: number) {
+  const firstDay = new Date(year, month, 1)
+  const lastDay = new Date(year, month + 1, 0)
+  const days: (Date | null)[] = []
+  let startDow = firstDay.getDay()
+  if (startDow === 0) startDow = 7
+  for (let i = 1; i < startDow; i++) days.push(null)
+  for (let i = 1; i <= lastDay.getDate(); i++) days.push(new Date(year, month, i))
+  return days
 }
 
 function TaskForm({ form, setForm, editingTask, saveTask, onCancel }: {
@@ -122,8 +120,6 @@ function TaskForm({ form, setForm, editingTask, saveTask, onCancel }: {
   return (
     <div style={{ background: '#f9f9f9', borderRadius: 12, padding: 16, marginBottom: 16 }}>
       <h3 style={{ margin: '0 0 12px', color: '#6c63ff' }}>{editingTask ? '✏️ Edit Task' : '➕ New Task'}</h3>
-
-      {/* Quick Templates */}
       {!editingTask && TEMPLATES[form.category] && (
         <div style={{ marginBottom: 12 }}>
           <p style={{ fontSize: 12, color: '#888', margin: '0 0 6px' }}>⚡ Quick templates:</p>
@@ -137,7 +133,6 @@ function TaskForm({ form, setForm, editingTask, saveTask, onCancel }: {
           </div>
         </div>
       )}
-
       <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Task title *"
         style={{ width: '100%', padding: 10, marginBottom: 8, borderRadius: 8, border: '1px solid #ccc', fontSize: 15, boxSizing: 'border-box' }} />
       <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Description"
@@ -217,8 +212,8 @@ function App() {
   const [user, setUser] = useState<User | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
-  const [view, setView] = useState<'list' | 'week'>('list')
-  const [weekOffset, setWeekOffset] = useState(0)
+  const [view, setView] = useState<'list' | 'month'>('list')
+  const [monthOffset, setMonthOffset] = useState(0)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
@@ -311,9 +306,12 @@ function App() {
 
   const pending = tasks.filter(t => t.status === 'pending').length
   const done = tasks.filter(t => t.status === 'done').length
-  const weekDays = getWeekDays(weekOffset)
-  const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
   const today = fmt(new Date())
+  const now = new Date()
+  const monthDate = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1)
+  const monthDays = getMonthDays(monthDate.getFullYear(), monthDate.getMonth())
+  const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+  const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
   return (
     <div style={{ maxWidth: 500, margin: '0 auto', fontFamily: 'sans-serif', padding: '20px 16px' }}>
@@ -350,11 +348,11 @@ function App() {
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <button onClick={() => setView('list')}
           style={{ flex: 1, padding: 10, borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 14, background: view === 'list' ? '#6c63ff' : '#f0f0f0', color: view === 'list' ? 'white' : '#333' }}>
-          📋 List View
+          📋 List
         </button>
-        <button onClick={() => setView('week')}
-          style={{ flex: 1, padding: 10, borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 14, background: view === 'week' ? '#6c63ff' : '#f0f0f0', color: view === 'week' ? 'white' : '#333' }}>
-          📅 Week View
+        <button onClick={() => setView('month')}
+          style={{ flex: 1, padding: 10, borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 14, background: view === 'month' ? '#6c63ff' : '#f0f0f0', color: view === 'month' ? 'white' : '#333' }}>
+          📅 Month
         </button>
       </div>
 
@@ -383,36 +381,52 @@ function App() {
         </>
       )}
 
-      {view === 'week' && (
+      {view === 'month' && (
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <button onClick={() => setWeekOffset(w => w - 1)}
+            <button onClick={() => setMonthOffset(m => m - 1)}
               style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid #ccc', background: 'white', cursor: 'pointer', fontSize: 16 }}>←</button>
-            <span style={{ fontWeight: 600, color: '#333', fontSize: 14 }}>
-              {weekDays[0].toLocaleDateString('en', { month: 'short', day: 'numeric' })} – {weekDays[6].toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+            <span style={{ fontWeight: 700, color: '#333', fontSize: 16 }}>
+              {MONTH_NAMES[monthDate.getMonth()]} {monthDate.getFullYear()}
             </span>
-            <button onClick={() => setWeekOffset(w => w + 1)}
+            <button onClick={() => setMonthOffset(m => m + 1)}
               style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid #ccc', background: 'white', cursor: 'pointer', fontSize: 16 }}>→</button>
           </div>
-          <div style={{ display: 'flex', gap: 6, marginBottom: 16, overflowX: 'auto' }}>
-            {weekDays.map((day, i) => {
+
+          {/* Day headers */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 4 }}>
+            {DAY_NAMES.map(d => (
+              <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 600, color: '#888', padding: '4px 0' }}>{d}</div>
+            ))}
+          </div>
+
+          {/* Calendar grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 16 }}>
+            {monthDays.map((day, i) => {
+              if (!day) return <div key={i} />
               const d = fmt(day)
-              const count = tasks.filter(t => t.scheduled_date === d).length
+              const dayTasks = tasks.filter(t => t.scheduled_date === d)
               const isToday = d === today
               const isSelected = selectedDate === d
+              const hasPending = dayTasks.some(t => t.status === 'pending')
+              const hasDone = dayTasks.some(t => t.status === 'done')
               return (
                 <div key={d} onClick={() => setSelectedDate(isSelected ? null : d)}
-                  style={{ flex: '0 0 auto', textAlign: 'center', padding: '8px 10px', borderRadius: 10, cursor: 'pointer', minWidth: 48,
-                    background: isSelected ? '#6c63ff' : isToday ? '#f0eeff' : '#f9f9f9',
-                    border: isToday ? '2px solid #6c63ff' : '2px solid transparent',
+                  style={{ textAlign: 'center', padding: '6px 2px', borderRadius: 8, cursor: 'pointer', minHeight: 44,
+                    background: isSelected ? '#6c63ff' : isToday ? '#f0eeff' : 'white',
+                    border: isToday ? '2px solid #6c63ff' : '1px solid #f0f0f0',
                     color: isSelected ? 'white' : '#333' }}>
-                  <div style={{ fontSize: 11, fontWeight: 600 }}>{DAY_NAMES[i]}</div>
-                  <div style={{ fontSize: 16, fontWeight: 'bold' }}>{day.getDate()}</div>
-                  {count > 0 && <div style={{ width: 6, height: 6, borderRadius: '50%', background: isSelected ? 'white' : '#6c63ff', margin: '2px auto 0' }} />}
+                  <div style={{ fontSize: 13, fontWeight: isToday ? 700 : 400 }}>{day.getDate()}</div>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: 2, marginTop: 2 }}>
+                    {hasPending && <div style={{ width: 5, height: 5, borderRadius: '50%', background: isSelected ? 'white' : '#6c63ff' }} />}
+                    {hasDone && <div style={{ width: 5, height: 5, borderRadius: '50%', background: isSelected ? 'white' : '#43b89c' }} />}
+                  </div>
                 </div>
               )
             })}
           </div>
+
+          {/* Tasks for selected day */}
           {selectedDate ? (
             <>
               <p style={{ fontWeight: 600, color: '#6c63ff', marginBottom: 8 }}>
@@ -420,7 +434,8 @@ function App() {
               </p>
               {tasks.filter(t => t.scheduled_date === selectedDate).length === 0
                 ? <p style={{ textAlign: 'center', color: '#aaa' }}>No tasks for this day!</p>
-                : tasks.filter(t => t.scheduled_date === selectedDate).map(task => <TaskCard key={task.id} task={task} toggleStatus={toggleStatus} startEdit={startEdit} deleteTask={deleteTask} />)
+                : tasks.filter(t => t.scheduled_date === selectedDate).map(task =>
+                  <TaskCard key={task.id} task={task} toggleStatus={toggleStatus} startEdit={startEdit} deleteTask={deleteTask} />)
               }
             </>
           ) : (
