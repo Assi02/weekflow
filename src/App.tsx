@@ -28,6 +28,36 @@ const EMPTY_FORM = {
   title: '', description: '', category: 'work', priority: 'normal',
   scheduled_date: '', contact_name: '', contact_phone: '', contact_email: ''
 }
+const TEMPLATES: Record<string, { title: string, description: string }[]> = {
+  gym: [
+    { title: 'Leg Day', description: 'Squats, lunges, leg press' },
+    { title: 'Chest Day', description: 'Bench press, push-ups, flyes' },
+    { title: 'Back Day', description: 'Deadlifts, rows, pull-ups' },
+    { title: 'Arm Day', description: 'Biceps, triceps, shoulders' },
+    { title: 'Cardio', description: '30 min run or cycling' },
+  ],
+  work: [
+    { title: 'Team Meeting', description: 'Discuss progress and blockers' },
+    { title: 'Client Call', description: 'Follow up with client' },
+    { title: 'Report Submission', description: 'Submit weekly report' },
+    { title: 'Email Follow-up', description: 'Follow up on pending emails' },
+  ],
+  home: [
+    { title: 'Grocery Shopping', description: 'Buy weekly groceries' },
+    { title: 'House Cleaning', description: 'Clean and organize home' },
+    { title: 'Bill Payment', description: 'Pay monthly bills' },
+  ],
+  social: [
+    { title: 'Meet Friends', description: 'Catch up with friends' },
+    { title: 'Family Dinner', description: 'Dinner with family' },
+    { title: 'Call Parents', description: 'Weekly call with parents' },
+  ],
+  meeting: [
+    { title: 'Project Review', description: 'Review project status' },
+    { title: 'Interview', description: 'Candidate interview' },
+    { title: 'Presentation', description: 'Present to stakeholders' },
+  ],
+}
 
 function Auth({ onLogin }: { onLogin: (u: User) => void }) {
   const [email, setEmail] = useState('')
@@ -92,12 +122,28 @@ function TaskForm({ form, setForm, editingTask, saveTask, onCancel }: {
   return (
     <div style={{ background: '#f9f9f9', borderRadius: 12, padding: 16, marginBottom: 16 }}>
       <h3 style={{ margin: '0 0 12px', color: '#6c63ff' }}>{editingTask ? '✏️ Edit Task' : '➕ New Task'}</h3>
+
+      {/* Quick Templates */}
+      {!editingTask && TEMPLATES[form.category] && (
+        <div style={{ marginBottom: 12 }}>
+          <p style={{ fontSize: 12, color: '#888', margin: '0 0 6px' }}>⚡ Quick templates:</p>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {TEMPLATES[form.category].map((t, i) => (
+              <span key={i} onClick={() => setForm({ ...form, title: t.title, description: t.description })}
+                style={{ fontSize: 12, background: '#f0eeff', color: '#6c63ff', padding: '4px 10px', borderRadius: 20, cursor: 'pointer', border: '1px solid #e0dcff' }}>
+                {t.title}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Task title *"
         style={{ width: '100%', padding: 10, marginBottom: 8, borderRadius: 8, border: '1px solid #ccc', fontSize: 15, boxSizing: 'border-box' }} />
       <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Description"
         style={{ width: '100%', padding: 10, marginBottom: 8, borderRadius: 8, border: '1px solid #ccc', fontSize: 14, boxSizing: 'border-box', resize: 'none', height: 60 }} />
       <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-        <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}
+        <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value, title: '', description: '' })}
           style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #ccc', fontSize: 14 }}>
           {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
@@ -198,11 +244,10 @@ function App() {
     const today = fmt(new Date())
     const tomorrow = fmt(new Date(Date.now() + 86400000))
     tasks.filter(t => t.status === 'pending').forEach(task => {
-      if (task.scheduled_date === today) {
-        new Notification(`📅 Due Today: ${task.title}`, { body: task.description || `${task.category} | ${task.priority}`, icon: '/favicon.svg' })
-      } else if (task.scheduled_date === tomorrow) {
-        new Notification(`⏰ Due Tomorrow: ${task.title}`, { body: task.description || `${task.category} | ${task.priority}`, icon: '/favicon.svg' })
-      }
+      if (task.scheduled_date === today)
+        new Notification(`📅 Due Today: ${task.title}`, { body: `${task.category} | ${task.priority}` })
+      else if (task.scheduled_date === tomorrow)
+        new Notification(`⏰ Due Tomorrow: ${task.title}`, { body: `${task.category} | ${task.priority}` })
     })
   }
 
