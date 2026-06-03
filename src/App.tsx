@@ -303,7 +303,8 @@ function App() {
   async function deleteTask(id: string) {
     const task = tasks.find(t => t.id === id)
     if (task) {
-      await supabase.from('trash').insert({ ...task, user_id: user!.id, deleted_at: new Date().toISOString() })
+      const { error } = await supabase.from('trash').insert({ ...task, user_id: user!.id, deleted_at: new Date().toISOString() })
+      console.log('trash insert error:', error)
       await supabase.from('tasks').delete().eq('id', id)
       setTasks(tasks.filter(t => t.id !== id))
       fetchTrash()
