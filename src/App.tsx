@@ -14,6 +14,10 @@ interface Task {
   contact_email: string
 }
 
+interface TrashedTask extends Task {
+  deleted_at: string
+}
+
 interface User {
   id: string
   email?: string
@@ -201,7 +205,7 @@ function TaskCard({ task, toggleStatus, startEdit, deleteTask }: {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <button onClick={() => startEdit(task)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}>✏️</button>
-          <button onClick={() => deleteTask(task.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}>❌</button>
+          <button onClick={() => deleteTask(task.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}>🗑️</button>
         </div>
       </div>
     </div>
@@ -211,8 +215,9 @@ function TaskCard({ task, toggleStatus, startEdit, deleteTask }: {
 function App() {
   const [user, setUser] = useState<User | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])
+  const [trash, setTrash] = useState<TrashedTask[]>([])
   const [loading, setLoading] = useState(true)
-  const [view, setView] = useState<'list' | 'month'>('list')
+  const [view, setView] = useState<'list' | 'month' | 'trash'>('list')
   const [monthOffset, setMonthOffset] = useState(0)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -229,7 +234,7 @@ function App() {
     })
   }, [])
 
-  useEffect(() => { if (user) fetchTasks() }, [user])
+  useEffect(() => { if (user) { fetchTasks(); fetchTrash() } }, [user])
 
   useEffect(() => {
     if (tasks.length > 0 && notifPermission === 'granted') checkReminders(tasks)
@@ -258,6 +263,11 @@ function App() {
   async function fetchTasks() {
     const { data } = await supabase.from('tasks').select('*').eq('user_id', user!.id).order('scheduled_date')
     if (data) setTasks(data)
+  }
+
+  async function fetchTrash() {
+    const { data } = await supabase.from('trash').select('*').eq('user_id', user!.id).order('deleted_at', { ascending: false })
+    if (data) setTrash(data)
   }
 
   async function saveTask() {
@@ -291,8 +301,26 @@ function App() {
   }
 
   async function deleteTask(id: string) {
-    await supabase.from('tasks').delete().eq('id', id)
-    setTasks(tasks.filter(t => t.id !== id))
+    const task = tasks.find(t => t.id === id)
+    if (task) {
+      await supabase.from('trash').insert({ ...task, user_id: user!.id, deleted_at: new Date().toISOString() })
+      await supabase.from('tasks').delete().eq('id', id)
+      setTasks(tasks.filter(t => t.id !== id))
+      fetchTrash()
+    }
+  }
+
+  async function restoreTask(t: TrashedTask) {
+    const { deleted_at, ...taskData } = t
+    await supabase.from('tasks').insert({ ...taskData })
+    await supabase.from('trash').delete().eq('id', t.id)
+    fetchTasks()
+    fetchTrash()
+  }
+
+  async function permanentDelete(id: string) {
+    await supabase.from('trash').delete().eq('id', id)
+    setTrash(trash.filter(t => t.id !== id))
   }
 
   if (loading) return <div style={{ textAlign: 'center', marginTop: 100, fontFamily: 'sans-serif' }}>Loading...</div>
@@ -324,7 +352,7 @@ function App() {
               🔔 Enable Alerts
             </button>
           )}
-          {notifPermission === 'granted' && <span style={{ fontSize: 13, color: '#43b89c', padding: '6px 0' }}>🔔 Alerts ON</span>}
+          {notifPermission === 'granted' && <span style={{ fontSize: 13, color: '#43b89c', padding: '6px 0' }}>🔔 ON</span>}
           <button onClick={async () => { await supabase.auth.signOut(); setUser(null) }}
             style={{ background: 'none', border: '1px solid #ccc', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 13 }}>Log out</button>
         </div>
@@ -345,21 +373,27 @@ function App() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
         <button onClick={() => setView('list')}
-          style={{ flex: 1, padding: 10, borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 14, background: view === 'list' ? '#6c63ff' : '#f0f0f0', color: view === 'list' ? 'white' : '#333' }}>
+          style={{ flex: 1, padding: 10, borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, background: view === 'list' ? '#6c63ff' : '#f0f0f0', color: view === 'list' ? 'white' : '#333' }}>
           📋 List
         </button>
         <button onClick={() => setView('month')}
-          style={{ flex: 1, padding: 10, borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 14, background: view === 'month' ? '#6c63ff' : '#f0f0f0', color: view === 'month' ? 'white' : '#333' }}>
+          style={{ flex: 1, padding: 10, borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, background: view === 'month' ? '#6c63ff' : '#f0f0f0', color: view === 'month' ? 'white' : '#333' }}>
           📅 Month
+        </button>
+        <button onClick={() => setView('trash')}
+          style={{ flex: 1, padding: 10, borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, background: view === 'trash' ? '#ff6584' : '#f0f0f0', color: view === 'trash' ? 'white' : '#333' }}>
+          🗑️ Trash {trash.length > 0 && `(${trash.length})`}
         </button>
       </div>
 
-      <button onClick={() => { setShowForm(!showForm); setEditingTask(null); setForm(EMPTY_FORM) }}
-        style={{ width: '100%', padding: 12, borderRadius: 8, background: '#6c63ff', color: 'white', border: 'none', cursor: 'pointer', fontSize: 16, marginBottom: 16 }}>
-        {showForm && !editingTask ? '✕ Cancel' : '+ Add Task'}
-      </button>
+      {view !== 'trash' && (
+        <button onClick={() => { setShowForm(!showForm); setEditingTask(null); setForm(EMPTY_FORM) }}
+          style={{ width: '100%', padding: 12, borderRadius: 8, background: '#6c63ff', color: 'white', border: 'none', cursor: 'pointer', fontSize: 16, marginBottom: 16 }}>
+          {showForm && !editingTask ? '✕ Cancel' : '+ Add Task'}
+        </button>
+      )}
 
       {showForm && <TaskForm form={form} setForm={setForm} editingTask={editingTask} saveTask={saveTask} onCancel={() => { setShowForm(false); setEditingTask(null); setForm(EMPTY_FORM) }} />}
 
@@ -392,15 +426,11 @@ function App() {
             <button onClick={() => setMonthOffset(m => m + 1)}
               style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid #ccc', background: 'white', cursor: 'pointer', fontSize: 16 }}>→</button>
           </div>
-
-          {/* Day headers */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 4 }}>
             {DAY_NAMES.map(d => (
               <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 600, color: '#888', padding: '4px 0' }}>{d}</div>
             ))}
           </div>
-
-          {/* Calendar grid */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 16 }}>
             {monthDays.map((day, i) => {
               if (!day) return <div key={i} />
@@ -425,8 +455,6 @@ function App() {
               )
             })}
           </div>
-
-          {/* Tasks for selected day */}
           {selectedDate ? (
             <>
               <p style={{ fontWeight: 600, color: '#6c63ff', marginBottom: 8 }}>
@@ -441,6 +469,38 @@ function App() {
           ) : (
             <p style={{ textAlign: 'center', color: '#aaa' }}>👆 Tap a day to see tasks</p>
           )}
+        </>
+      )}
+
+      {view === 'trash' && (
+        <>
+          <p style={{ color: '#888', fontSize: 13, marginBottom: 12 }}>🗑️ Deleted tasks — restore or permanently delete</p>
+          {trash.length === 0 && <p style={{ textAlign: 'center', color: '#aaa' }}>Trash is empty!</p>}
+          {trash.map(task => (
+            <div key={task.id} style={{ background: 'white', borderRadius: 12, padding: 16, marginBottom: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', borderLeft: `4px solid ${CATEGORY_COLORS[task.category] || '#ccc'}`, opacity: 0.7 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontWeight: 600, color: '#333', margin: '0 0 4px', textDecoration: 'line-through' }}>{task.title}</p>
+                  {task.description && <p style={{ fontSize: 13, color: '#888', margin: '0 0 6px' }}>{task.description}</p>}
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    <span style={{ background: CATEGORY_COLORS[task.category], color: 'white', borderRadius: 20, padding: '2px 10px', fontSize: 11 }}>{task.category}</span>
+                    {task.scheduled_date && <span style={{ fontSize: 11, color: '#888' }}>📅 {task.scheduled_date}</span>}
+                    <span style={{ fontSize: 11, color: '#aaa' }}>🗑️ {new Date(task.deleted_at).toLocaleDateString()}</span>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <button onClick={() => restoreTask(task)}
+                    style={{ background: '#43b89c', color: 'white', border: 'none', borderRadius: 8, padding: '4px 10px', cursor: 'pointer', fontSize: 12 }}>
+                    ↩️ Restore
+                  </button>
+                  <button onClick={() => permanentDelete(task.id)}
+                    style={{ background: '#ff6584', color: 'white', border: 'none', borderRadius: 8, padding: '4px 10px', cursor: 'pointer', fontSize: 12 }}>
+                    🗑️ Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
         </>
       )}
     </div>
